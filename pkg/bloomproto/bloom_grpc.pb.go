@@ -4,7 +4,7 @@
 // - protoc             v5.29.3
 // source: bloom.proto
 
-package proto
+package bloomproto
 
 import (
 	context "context"
@@ -19,7 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DistributedBloomFilter_Test_FullMethodName = "/proto.DistributedBloomFilter/Test"
+	DistributedBloomFilter_Test_FullMethodName               = "/bloom_proto.DistributedBloomFilter/Test"
+	DistributedBloomFilter_Insert_FullMethodName             = "/bloom_proto.DistributedBloomFilter/Insert"
+	DistributedBloomFilter_PrepareBloomFilter_FullMethodName = "/bloom_proto.DistributedBloomFilter/PrepareBloomFilter"
 )
 
 // DistributedBloomFilterClient is the client API for DistributedBloomFilter service.
@@ -27,6 +29,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DistributedBloomFilterClient interface {
 	Test(ctx context.Context, in *TestRequest, opts ...grpc.CallOption) (*TestResponse, error)
+	Insert(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[InsertRequest, InsertResponse], error)
+	PrepareBloomFilter(ctx context.Context, in *PrepareBloomFilterRequest, opts ...grpc.CallOption) (*PrepareBloomFilterResponse, error)
 }
 
 type distributedBloomFilterClient struct {
@@ -47,11 +51,36 @@ func (c *distributedBloomFilterClient) Test(ctx context.Context, in *TestRequest
 	return out, nil
 }
 
+func (c *distributedBloomFilterClient) Insert(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[InsertRequest, InsertResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &DistributedBloomFilter_ServiceDesc.Streams[0], DistributedBloomFilter_Insert_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[InsertRequest, InsertResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DistributedBloomFilter_InsertClient = grpc.ClientStreamingClient[InsertRequest, InsertResponse]
+
+func (c *distributedBloomFilterClient) PrepareBloomFilter(ctx context.Context, in *PrepareBloomFilterRequest, opts ...grpc.CallOption) (*PrepareBloomFilterResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PrepareBloomFilterResponse)
+	err := c.cc.Invoke(ctx, DistributedBloomFilter_PrepareBloomFilter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DistributedBloomFilterServer is the server API for DistributedBloomFilter service.
 // All implementations must embed UnimplementedDistributedBloomFilterServer
 // for forward compatibility.
 type DistributedBloomFilterServer interface {
 	Test(context.Context, *TestRequest) (*TestResponse, error)
+	Insert(grpc.ClientStreamingServer[InsertRequest, InsertResponse]) error
+	PrepareBloomFilter(context.Context, *PrepareBloomFilterRequest) (*PrepareBloomFilterResponse, error)
 	mustEmbedUnimplementedDistributedBloomFilterServer()
 }
 
@@ -64,6 +93,12 @@ type UnimplementedDistributedBloomFilterServer struct{}
 
 func (UnimplementedDistributedBloomFilterServer) Test(context.Context, *TestRequest) (*TestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Test not implemented")
+}
+func (UnimplementedDistributedBloomFilterServer) Insert(grpc.ClientStreamingServer[InsertRequest, InsertResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Insert not implemented")
+}
+func (UnimplementedDistributedBloomFilterServer) PrepareBloomFilter(context.Context, *PrepareBloomFilterRequest) (*PrepareBloomFilterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepareBloomFilter not implemented")
 }
 func (UnimplementedDistributedBloomFilterServer) mustEmbedUnimplementedDistributedBloomFilterServer() {
 }
@@ -105,18 +140,53 @@ func _DistributedBloomFilter_Test_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DistributedBloomFilter_Insert_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DistributedBloomFilterServer).Insert(&grpc.GenericServerStream[InsertRequest, InsertResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DistributedBloomFilter_InsertServer = grpc.ClientStreamingServer[InsertRequest, InsertResponse]
+
+func _DistributedBloomFilter_PrepareBloomFilter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareBloomFilterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedBloomFilterServer).PrepareBloomFilter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedBloomFilter_PrepareBloomFilter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedBloomFilterServer).PrepareBloomFilter(ctx, req.(*PrepareBloomFilterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DistributedBloomFilter_ServiceDesc is the grpc.ServiceDesc for DistributedBloomFilter service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DistributedBloomFilter_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.DistributedBloomFilter",
+	ServiceName: "bloom_proto.DistributedBloomFilter",
 	HandlerType: (*DistributedBloomFilterServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Test",
 			Handler:    _DistributedBloomFilter_Test_Handler,
 		},
+		{
+			MethodName: "PrepareBloomFilter",
+			Handler:    _DistributedBloomFilter_PrepareBloomFilter_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Insert",
+			Handler:       _DistributedBloomFilter_Insert_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "bloom.proto",
 }

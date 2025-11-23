@@ -1,0 +1,19 @@
+{
+  "name": "distributed-bloom-filter",
+  "version": "1.0.0",
+  "description": "Single bloom ```shell echo \"GET http://localhost:8000/test?uid=32202899-2c89-419c-9837-d3f029708695\" | vegeta attack -rate=4000/s -duration=15s -output=results_node.bin && cat results_node.bin | vegeta report ```",
+  "main": "./cmd/performance-test/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxzhovtyj/distributed-bloom-filter.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maxzhovtyj/distributed-bloom-filter/issues"
+  },
+  "homepage": "https://github.com/maxzhovtyj/distributed-bloom-filter#readme"
+}

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package bloom_proto;
+option go_package = "./bloomproto";
+
+service DistributedBloomFilter {
+  rpc Test(TestRequest) returns (TestResponse);
+  rpc Insert(stream InsertRequest) returns (InsertResponse);
+  rpc PrepareBloomFilter(PrepareBloomFilterRequest) returns (PrepareBloomFilterResponse);
+}
+
+message TestRequest {
+  bytes key = 1;
+}
+
+message TestResponse {
+  bool isPresent = 2;
+}
+
+message InsertRequest {
+  bytes key = 1;
+}
+
+message InsertResponse {}
+
+message PrepareBloomFilterRequest {
+  int64 elementsCount = 1;
+}
+
+message PrepareBloomFilterResponse {}

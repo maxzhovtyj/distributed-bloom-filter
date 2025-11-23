@@ -1,0 +1,4 @@
+GET http://localhost:9000/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
+GET http://localhost:9001/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
+GET http://localhost:9002/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
+GET http://localhost:9003/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad

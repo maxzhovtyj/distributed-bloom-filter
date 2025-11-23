@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s # How frequently to scrape targets
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: [ 'localhost:9090' ] # Prometheus itself
+  - job_name: 'bloomnode'
+    metrics_path: /metrics
+    static_configs:
+      - targets: [
+        'app_1:9000',
+        'app_2:9000',
+        'app_3:9000',
+        'app_4:9000',
+      ]
