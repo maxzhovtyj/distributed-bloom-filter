@@ -6,3 +6,6 @@ deploy:
 	docker compose down
 	docker build -t bloomnode .
 	docker compose up -d
+
+load-test:
+	vegeta attack -targets=targets.txt -rate=5000/s -duration=60s -output=results.bin && cat results.bin | vegeta report
