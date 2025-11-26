@@ -8,10 +8,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -27,7 +26,8 @@ var (
 )
 
 type Service struct {
-	bloomFilter *bloom.BloomFilter
+	bloomFilter   atomic.Pointer[bloom.BloomFilter]
+	elementsCount atomic.Uint64
 
 	bloomproto.UnimplementedDistributedBloomFilterServer
 }
@@ -55,14 +55,15 @@ func (s *Service) TestHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) TestBloomFilter(uid []byte) bool {
-	return s.bloomFilter.Test(uid)
+	bfd := s.bloomFilter.Load()
+	if bfd == nil {
+		return false
+	}
+
+	return bfd.Test(uid)
 }
 
 func (s *Service) Test(ctx context.Context, request *bloomproto.TestRequest) (*bloomproto.TestResponse, error) {
-	if s.bloomFilter == nil {
-		return nil, status.Error(codes.FailedPrecondition, "bloom filter is not initialized")
-	}
-
 	testRequests.Inc()
 	start := time.Now()
 	defer func() {
@@ -75,9 +76,7 @@ func (s *Service) Test(ctx context.Context, request *bloomproto.TestRequest) (*b
 }
 
 func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest, bloomproto.InsertResponse]) error {
-	if s.bloomFilter == nil {
-		return status.Error(codes.Internal, "BloomFilter is nil")
-	}
+	bfd := bloom.NewWithEstimates(uint(s.elementsCount.Load()), 0.001)
 
 	for {
 		select {
@@ -92,22 +91,26 @@ func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest
 			if errors.Is(err, io.EOF) {
 				err = req.SendAndClose(&bloomproto.InsertResponse{})
 				if err != nil {
-					return err
+					break
 				}
 			}
 
 			return err
 		}
 
-		s.bloomFilter.Add(recv.Key)
+		bfd.Add(recv.Key)
 	}
+
+	s.bloomFilter.Store(bfd)
+
+	return nil
 }
 
 func (s *Service) PrepareBloomFilter(
 	ctx context.Context,
 	req *bloomproto.PrepareBloomFilterRequest,
 ) (*bloomproto.PrepareBloomFilterResponse, error) {
-	s.bloomFilter = bloom.NewWithEstimates(uint(req.ElementsCount), 0.001)
+	s.elementsCount.Store(uint64(req.ElementsCount))
 
 	return &bloomproto.PrepareBloomFilterResponse{}, nil
 }
