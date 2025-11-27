@@ -42,6 +42,19 @@ func (chr *Ring) AddNode(id []byte, uri string) *Node {
 	return chr.nodes[hash]
 }
 
+func (chr *Ring) RemoveNode(id []byte) {
+	chr.nodesMX.Lock()
+	defer chr.nodesMX.Unlock()
+
+	h := Hash(id)
+
+	delete(chr.nodes, h)
+
+	slices.DeleteFunc(chr.hashes, func(u uint32) bool {
+		return u == h
+	})
+}
+
 func (chr *Ring) GetNextNodeIndex(hash uint32) int {
 	if len(chr.hashes) == 0 {
 		return -1
@@ -54,6 +67,23 @@ func (chr *Ring) GetNextNodeIndex(hash uint32) int {
 	}
 
 	return 0
+}
+
+func (chr *Ring) GetNodeByHash(hash uint32) *Node {
+	chr.nodesMX.RLock()
+	defer chr.nodesMX.RUnlock()
+
+	if len(chr.hashes) == 0 {
+		return nil
+	}
+
+	for _, h := range chr.hashes {
+		if h > hash {
+			return chr.nodes[h]
+		}
+	}
+
+	return nil
 }
 
 func (chr *Ring) GetNode(element []byte) *Node {

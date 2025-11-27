@@ -59,6 +59,21 @@ func (s *Service) Run() {
 
 		s.AddNode(nodeID, uri)
 	})
+	mux.HandleFunc("/remove-node", func(w http.ResponseWriter, r *http.Request) {
+		nodeID := []byte(r.URL.Query().Get("nodeID"))
+		if len(nodeID) == 0 {
+			_, _ = w.Write([]byte("node id not found"))
+			return
+		}
+
+		uri := r.URL.Query().Get("uri")
+		if len(uri) == 0 {
+			_, _ = w.Write([]byte("uri not found"))
+			return
+		}
+
+		s.RemoveNode(nodeID)
+	})
 
 	if err := http.ListenAndServe(":7000", mux); err != nil {
 		panic(err)
@@ -103,6 +118,29 @@ func (s *Service) AddNode(id []byte, uri string) {
 }
 
 func (s *Service) RemoveNode(id []byte) {
+	ring := s.GetRing()
+
+	nextNode := ring.GetNodeByHash(Hash(id) + 1)
+
+	newRing := NewRing()
+
+	ring.CopyTo(newRing)
+	newRing.RemoveNode(id)
+
+	nodesToSkip := make(map[string]struct{})
+
+	for _, node := range newRing.nodes {
+		if node == nextNode {
+			continue
+		}
+
+		nodesToSkip[node.URI] = struct{}{}
+	}
+
+	prepareClusterBloomFilter(newRing)
+	setupDistributedBloomFilter(newRing, nodesToSkip)
+
+	s.ring.Store(newRing)
 }
 
 func prepareClusterBloomFilter(ring *Ring) {
