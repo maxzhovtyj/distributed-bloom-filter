@@ -24,7 +24,7 @@ func Hash(key []byte) uint32 {
 	return murmur3.Sum32(key)
 }
 
-func (chr *Ring) AddNode(id []byte, uri string) {
+func (chr *Ring) AddNode(id []byte, uri string) *Node {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
@@ -39,6 +39,7 @@ func (chr *Ring) AddNode(id []byte, uri string) {
 	chr.hashes = append(chr.hashes, hash)
 
 	slices.Sort(chr.hashes)
+	return chr.nodes[hash]
 }
 
 func (chr *Ring) GetNextNodeIndex(hash uint32) int {
@@ -70,6 +71,19 @@ func (chr *Ring) GetNode(element []byte) *Node {
 	}
 
 	return chr.nodes[chr.hashes[idx]]
+}
+
+func (chr *Ring) CopyTo(dst *Ring) {
+	chr.nodesMX.RLock()
+	defer chr.nodesMX.RUnlock()
+
+	for _, node := range chr.nodes {
+		h := Hash(node.ID)
+		dst.nodes[h] = node
+		dst.hashes = append(dst.hashes, h)
+	}
+
+	slices.Sort(dst.hashes)
 }
 
 func (chr *Ring) Close() {

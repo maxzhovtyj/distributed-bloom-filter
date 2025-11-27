@@ -25,21 +25,33 @@ services:
     ports:
       - "8000:8000"
       - "9000:9000"
+    volumes:
+      - app1_data:/app
   app_2:
     image: bloomnode:latest
     ports:
       - "8001:8000"
       - "9001:9000"
+    volumes:
+      - app2_data:/app
   app_3:
     image: bloomnode:latest
     ports:
       - "8002:8000"
       - "9002:9000"
+    volumes:
+      - app3_data:/app
   app_4:
     image: bloomnode:latest
     ports:
       - "8003:8000"
       - "9003:9000"
+    volumes:
+      - app4_data:/app
 volumes:
   grafana-storage:
   prometheus_data:
+  app1_data:
+  app2_data:
+  app3_data:
+  app4_data:

@@ -10,7 +10,7 @@ import (
 )
 
 func Run() {
-	tcpSocket, err := net.Listen("tcp", ":8000")
+	tcpSocket, err := net.Listen("tcp", ":8004")
 	if err != nil {
 		panic(err)
 	}
@@ -18,6 +18,11 @@ func Run() {
 	grpcServer := grpc.NewServer()
 
 	service := NewService()
+
+	err = service.Init()
+	if err != nil {
+		log.Panicf("Error initializing service: %v", err)
+	}
 
 	bloomproto.RegisterDistributedBloomFilterServer(grpcServer, service)
 
@@ -36,7 +41,7 @@ func Run() {
 	mux.HandleFunc("/test", service.TestHTTP)
 
 	log.Println("Start serving http on :9000")
-	if httpErr := http.ListenAndServe(":9000", mux); httpErr != nil {
+	if httpErr := http.ListenAndServe(":9004", mux); httpErr != nil {
 		panic(httpErr)
 	}
 }

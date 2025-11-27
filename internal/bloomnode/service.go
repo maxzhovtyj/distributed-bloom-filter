@@ -3,16 +3,21 @@ package bloomnode
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/maxzhovtyj/distributed-bloom-filter/pkg/bloomproto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"time"
 )
+
+const bfdPath = "./bloom_filter.bfd"
 
 var (
 	testRequests = promauto.NewCounter(prometheus.CounterOpts{
@@ -36,6 +41,15 @@ func NewService() *Service {
 	return &Service{}
 }
 
+func (s *Service) Init() error {
+	err := s.loadFromDisk()
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Service) TestHTTP(w http.ResponseWriter, r *http.Request) {
 	testRequests.Inc()
 	start := time.Now()
@@ -45,7 +59,13 @@ func (s *Service) TestHTTP(w http.ResponseWriter, r *http.Request) {
 
 	uid := []byte(r.URL.Query().Get("uid"))
 
-	if s.TestBloomFilter(uid) {
+	res, err := s.TestBloomFilter(uid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if res {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusNoContent)
@@ -54,13 +74,13 @@ func (s *Service) TestHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("OK"))
 }
 
-func (s *Service) TestBloomFilter(uid []byte) bool {
+func (s *Service) TestBloomFilter(uid []byte) (bool, error) {
 	bfd := s.bloomFilter.Load()
 	if bfd == nil {
-		return false
+		return false, fmt.Errorf("bloom filter not found")
 	}
 
-	return bfd.Test(uid)
+	return bfd.Test(uid), nil
 }
 
 func (s *Service) Test(ctx context.Context, request *bloomproto.TestRequest) (*bloomproto.TestResponse, error) {
@@ -70,8 +90,13 @@ func (s *Service) Test(ctx context.Context, request *bloomproto.TestRequest) (*b
 		testRequestLatency.WithLabelValues("grpc").Observe(time.Since(start).Seconds())
 	}()
 
+	res, err := s.TestBloomFilter(request.Key)
+	if err != nil {
+		return &bloomproto.TestResponse{}, err
+	}
+
 	return &bloomproto.TestResponse{
-		IsPresent: s.TestBloomFilter(request.Key),
+		IsPresent: res,
 	}, nil
 }
 
@@ -93,6 +118,8 @@ func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest
 				if err != nil {
 					break
 				}
+
+				break
 			}
 
 			return err
@@ -102,6 +129,50 @@ func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest
 	}
 
 	s.bloomFilter.Store(bfd)
+
+	go func() {
+		err := s.storeToDisk()
+		if err != nil {
+			log.Printf("Error storing bloom filter: %v", err)
+			return
+		}
+
+		log.Println("Successfully updated and saved bloom filter to disk")
+	}()
+
+	log.Println("Successfully updated bloom filter")
+
+	return nil
+}
+
+func (s *Service) loadFromDisk() error {
+	raw, err := os.ReadFile(bfdPath)
+	if err != nil {
+		return err
+	}
+
+	var bfd bloom.BloomFilter
+
+	err = bfd.UnmarshalBinary(raw)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) storeToDisk() error {
+	bfd := s.bloomFilter.Load()
+
+	raw, err := bfd.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(bfdPath, raw, os.ModePerm)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

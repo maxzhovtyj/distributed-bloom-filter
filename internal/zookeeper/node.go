@@ -80,3 +80,10 @@ func (n *Node) Close() {
 		log.Printf("Failed to close client connection: %v", err)
 	}
 }
+
+func (n *Node) CopyTo(node *Node) {
+	node.ID = append(node.ID[:0], n.ID...)
+	node.URI = n.URI
+	node.client = n.client
+	node.conn = n.conn
+}
