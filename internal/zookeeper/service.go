@@ -21,6 +21,8 @@ type NodeOption struct {
 	ID             string `yaml:"id"`
 	URI            string `yaml:"uri"`
 	ReplicationURI string `yaml:"replicationUri"`
+	GRPCPort       int    `yaml:"grpcPort"`
+	HTTPPort       int    `yaml:"httpPort"`
 
 	CPUCores     int `yaml:"cpuCores"`
 	MemoryLimit  int `yaml:"memoryLimit"`

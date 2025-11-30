@@ -10,7 +10,7 @@ import (
 )
 
 func Run() {
-	tcpSocket, err := net.Listen("tcp", ":8004")
+	tcpSocket, err := net.Listen("tcp", ":8000")
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func Run() {
 	mux.HandleFunc("/test", service.TestHTTP)
 
 	log.Println("Start serving http on :9000")
-	if httpErr := http.ListenAndServe(":9004", mux); httpErr != nil {
+	if httpErr := http.ListenAndServe(":9000", mux); httpErr != nil {
 		panic(httpErr)
 	}
 }
