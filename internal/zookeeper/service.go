@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/maxzhovtyj/distributed-bloom-filter/pkg/bloomdata"
 	"log"
@@ -11,13 +12,42 @@ import (
 
 const input = "/Users/maksymzhovtaniuk/Desktop/Дисертація/distributed-bloom-filter/data/idfa1.csv"
 
+type ClusterOptions struct {
+	Nodes           []NodeOption `yaml:"nodes"`
+	BloomFilterPath string       `json:"bloomFilterPath"`
+}
+
+type NodeOption struct {
+	ID             string `yaml:"id"`
+	URI            string `yaml:"uri"`
+	ReplicationURI string `yaml:"replicationUri"`
+
+	CPUCores     int `yaml:"cpuCores"`
+	MemoryLimit  int `yaml:"memoryLimit"`
+	NetworkLimit int `yaml:"networkLimit"`
+}
+
 type Service struct {
+	cfg *ClusterOptions
+
 	ring atomic.Pointer[Ring]
 }
 
-func New() *Service {
+func New(cluster *ClusterOptions) *Service {
 	r := NewRing()
-	s := &Service{}
+
+	start := time.Now()
+
+	for _, node := range cluster.Nodes {
+		r.AddNode([]byte(node.ID), node.URI)
+	}
+
+	log.Printf("Cluster ring cretead in %s\n", time.Since(start))
+
+	s := &Service{
+		cfg: cluster,
+	}
+
 	s.ring.Store(r)
 
 	return s
@@ -74,6 +104,17 @@ func (s *Service) Run() {
 
 		s.RemoveNode(nodeID)
 	})
+	mux.HandleFunc("/cluster", func(w http.ResponseWriter, r *http.Request) {
+		ring := s.ring.Load()
+
+		cluster, err := json.Marshal(ring)
+		if err != nil {
+			panic(err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(cluster)
+	})
 
 	if err := http.ListenAndServe(":7000", mux); err != nil {
 		panic(err)
@@ -100,7 +141,7 @@ func (s *Service) AddNode(id []byte, uri string) {
 
 	nodesToSkip := make(map[string]struct{})
 
-	for _, node := range ring.nodes {
+	for _, node := range ring.Nodes {
 		if node == nodeToReBalance || node == newNode {
 			continue
 		}
@@ -129,7 +170,7 @@ func (s *Service) RemoveNode(id []byte) {
 
 	nodesToSkip := make(map[string]struct{})
 
-	for _, node := range newRing.nodes {
+	for _, node := range newRing.Nodes {
 		if node == nextNode {
 			continue
 		}
@@ -153,7 +194,7 @@ func prepareClusterBloomFilter(ring *Ring) {
 	fmt.Println("===========")
 
 	ring.nodesMX.RLock()
-	for _, node := range ring.nodes {
+	for _, node := range ring.Nodes {
 		elements := uidsPerNode[string(node.ID)]
 
 		err := node.PrepareNode(elements)
@@ -165,19 +206,6 @@ func prepareClusterBloomFilter(ring *Ring) {
 		log.Printf("Prepared bloom filter %s — %d", node.ID, elements)
 	}
 	ring.nodesMX.RUnlock()
-}
-
-func (s *Service) InitRing() {
-	start := time.Now()
-
-	ring := s.GetRing()
-
-	ring.AddNode([]byte("server1"), "localhost:8000")
-	ring.AddNode([]byte("server2"), "localhost:8001")
-	ring.AddNode([]byte("server3"), "localhost:8002")
-	ring.AddNode([]byte("server4"), "localhost:8003")
-
-	log.Printf("Done InitRing in %s\n", time.Since(start))
 }
 
 func runEstimation(ring *Ring) map[string]int {
@@ -222,7 +250,7 @@ func setupDistributedBloomFilter(ring *Ring, nodesToSkip map[string]struct{}) {
 	}()
 
 	ring.nodesMX.RLock()
-	for _, node := range ring.nodes {
+	for _, node := range ring.Nodes {
 		nodeID := string(node.ID)
 
 		if _, ok := nodesToSkip[nodeID]; ok {

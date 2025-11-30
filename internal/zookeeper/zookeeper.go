@@ -7,16 +7,16 @@ import (
 )
 
 type Ring struct {
-	nodes   map[uint32]*Node
+	Nodes   map[uint32]*Node
 	nodesMX sync.RWMutex
 
-	hashes []uint32
+	Hashes []uint32
 }
 
 func NewRing() *Ring {
 	return &Ring{
-		nodes:  make(map[uint32]*Node),
-		hashes: []uint32{},
+		Nodes:  make(map[uint32]*Node),
+		Hashes: []uint32{},
 	}
 }
 
@@ -31,15 +31,16 @@ func (chr *Ring) AddNode(id []byte, uri string) *Node {
 	var err error
 
 	hash := Hash(id)
-	chr.nodes[hash], err = NewNode(id, uri)
+	chr.Nodes[hash], err = NewNode(id, uri)
 	if err != nil {
 		panic(err)
 	}
 
-	chr.hashes = append(chr.hashes, hash)
+	chr.Hashes = append(chr.Hashes, hash)
 
-	slices.Sort(chr.hashes)
-	return chr.nodes[hash]
+	slices.Sort(chr.Hashes)
+
+	return chr.Nodes[hash]
 }
 
 func (chr *Ring) RemoveNode(id []byte) {
@@ -48,19 +49,19 @@ func (chr *Ring) RemoveNode(id []byte) {
 
 	h := Hash(id)
 
-	delete(chr.nodes, h)
+	delete(chr.Nodes, h)
 
-	slices.DeleteFunc(chr.hashes, func(u uint32) bool {
+	slices.DeleteFunc(chr.Hashes, func(u uint32) bool {
 		return u == h
 	})
 }
 
 func (chr *Ring) GetNextNodeIndex(hash uint32) int {
-	if len(chr.hashes) == 0 {
+	if len(chr.Hashes) == 0 {
 		return -1
 	}
 
-	for i, h := range chr.hashes {
+	for i, h := range chr.Hashes {
 		if h > hash {
 			return i
 		}
@@ -73,13 +74,13 @@ func (chr *Ring) GetNodeByHash(hash uint32) *Node {
 	chr.nodesMX.RLock()
 	defer chr.nodesMX.RUnlock()
 
-	if len(chr.hashes) == 0 {
+	if len(chr.Hashes) == 0 {
 		return nil
 	}
 
-	for _, h := range chr.hashes {
+	for _, h := range chr.Hashes {
 		if h > hash {
-			return chr.nodes[h]
+			return chr.Nodes[h]
 		}
 	}
 
@@ -90,7 +91,7 @@ func (chr *Ring) GetNode(element []byte) *Node {
 	chr.nodesMX.RLock()
 	defer chr.nodesMX.RUnlock()
 
-	if len(chr.hashes) == 0 {
+	if len(chr.Hashes) == 0 {
 		return nil
 	}
 
@@ -100,27 +101,27 @@ func (chr *Ring) GetNode(element []byte) *Node {
 		return nil
 	}
 
-	return chr.nodes[chr.hashes[idx]]
+	return chr.Nodes[chr.Hashes[idx]]
 }
 
 func (chr *Ring) CopyTo(dst *Ring) {
 	chr.nodesMX.RLock()
 	defer chr.nodesMX.RUnlock()
 
-	for _, node := range chr.nodes {
+	for _, node := range chr.Nodes {
 		h := Hash(node.ID)
-		dst.nodes[h] = node
-		dst.hashes = append(dst.hashes, h)
+		dst.Nodes[h] = node
+		dst.Hashes = append(dst.Hashes, h)
 	}
 
-	slices.Sort(dst.hashes)
+	slices.Sort(dst.Hashes)
 }
 
 func (chr *Ring) Close() {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
-	for _, n := range chr.nodes {
+	for _, n := range chr.Nodes {
 		n.Close()
 	}
 }

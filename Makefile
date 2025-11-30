@@ -9,3 +9,6 @@ deploy:
 
 load-test:
 	vegeta attack -targets=targets.txt -rate=5000/s -duration=60s -output=results.bin && cat results.bin | vegeta report
+
+build-bloom-node:
+	GOOS=linux GOARCH=amd64 go build -o bin/node-linux-amd64 ./cmd/bloomnode
