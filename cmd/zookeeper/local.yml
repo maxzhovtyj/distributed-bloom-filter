@@ -2,19 +2,20 @@ bloomFilterPath: "/Users/maksymzhovtaniuk/Desktop/Дисертація/distribut
 nodes:
   - id: "ubuntu-s-1vcpu-2gb-fra1-01"
     uri: "161.35.74.38"
-    replicationURI: ""
+    grpcPort: 8000
+    httpPort: 9000
     cpuCores: 1
     memoryLimit: 2
     networkLimit: 1
-  - id: "ubuntu-s-1vcpu-2gb-fra1-02"
-    uri: "134.209.244.237"
-    replicationURI: ""
-    cpuCores: 1
-    memoryLimit: 2
-    networkLimit: 1
-  - id: "ubuntu-s-1vcpu-2gb-fra1-03"
-    uri: "46.101.123.0"
-    replicationURI: ""
-    cpuCores: 1
-    memoryLimit: 2
-    networkLimit: 1
+#  - id: "ubuntu-s-1vcpu-2gb-fra1-02"
+#    uri: "134.209.244.237"
+#    replicationURI: ""
+#    cpuCores: 1
+#    memoryLimit: 2
+#    networkLimit: 1
+#  - id: "ubuntu-s-1vcpu-2gb-fra1-03"
+#    uri: "46.101.123.0"
+#    replicationURI: ""
+#    cpuCores: 1
+#    memoryLimit: 2
+#    networkLimit: 1

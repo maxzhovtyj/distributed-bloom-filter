@@ -41,7 +41,7 @@ func New(cluster *ClusterOptions) *Service {
 	start := time.Now()
 
 	for _, node := range cluster.Nodes {
-		r.AddNode([]byte(node.ID), node.URI)
+		r.AddNode(node)
 	}
 
 	log.Printf("Cluster ring cretead in %s\n", time.Since(start))
@@ -77,19 +77,20 @@ func (s *Service) Run() {
 		_, _ = w.Write([]byte(fmt.Sprintf("%s", node.ID)))
 	})
 	mux.HandleFunc("/add-node", func(w http.ResponseWriter, r *http.Request) {
-		nodeID := []byte(r.URL.Query().Get("nodeID"))
-		if len(nodeID) == 0 {
-			_, _ = w.Write([]byte("node id not found"))
-			return
-		}
-
-		uri := r.URL.Query().Get("uri")
-		if len(uri) == 0 {
-			_, _ = w.Write([]byte("uri not found"))
-			return
-		}
-
-		s.AddNode(nodeID, uri)
+		// TODO
+		//nodeID := []byte(r.URL.Query().Get("nodeID"))
+		//if len(nodeID) == 0 {
+		//	_, _ = w.Write([]byte("node id not found"))
+		//	return
+		//}
+		//
+		//uri := r.URL.Query().Get("uri")
+		//if len(uri) == 0 {
+		//	_, _ = w.Write([]byte("uri not found"))
+		//	return
+		//}
+		//
+		//s.AddNode(nodeID, uri)
 	})
 	mux.HandleFunc("/remove-node", func(w http.ResponseWriter, r *http.Request) {
 		nodeID := []byte(r.URL.Query().Get("nodeID"))
@@ -131,15 +132,15 @@ func (s *Service) InitClusterBloomFilter() {
 	setupDistributedBloomFilter(ring, map[string]struct{}{})
 }
 
-func (s *Service) AddNode(id []byte, uri string) {
+func (s *Service) AddNode(opt NodeOption) {
 	ring := s.GetRing()
 
-	nodeToReBalance := ring.GetNode(id)
+	nodeToReBalance := ring.GetNode([]byte(opt.ID))
 
 	newRing := NewRing()
 
 	ring.CopyTo(newRing)
-	newNode := newRing.AddNode(id, uri)
+	newNode := newRing.AddNode(opt)
 
 	nodesToSkip := make(map[string]struct{})
 

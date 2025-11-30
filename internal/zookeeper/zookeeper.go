@@ -24,14 +24,15 @@ func Hash(key []byte) uint32 {
 	return murmur3.Sum32(key)
 }
 
-func (chr *Ring) AddNode(id []byte, uri string) *Node {
+func (chr *Ring) AddNode(opt NodeOption) *Node {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
 	var err error
 
-	hash := Hash(id)
-	chr.Nodes[hash], err = NewNode(id, uri)
+	hash := Hash([]byte(opt.ID))
+
+	chr.Nodes[hash], err = NewNode(opt)
 	if err != nil {
 		panic(err)
 	}

@@ -2,6 +2,7 @@ package zookeeper
 
 import (
 	"context"
+	"fmt"
 	"github.com/maxzhovtyj/distributed-bloom-filter/pkg/bloomproto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -10,26 +11,35 @@ import (
 )
 
 type Node struct {
-	ID  []byte
-	URI string
+	ID         []byte
+	URI        string
+	GRPCPort   int
+	HTTPPort   int
+	ReplicaURI string
 
 	client *grpc.ClientConn
 	conn   bloomproto.DistributedBloomFilterClient
 }
 
-func NewNode(id []byte, uri string) (*Node, error) {
+func NewNode(options NodeOption) (*Node, error) {
 	insecureCredentials := insecure.NewCredentials()
 
-	cl, err := grpc.NewClient(uri, grpc.WithTransportCredentials(insecureCredentials))
+	grpcURI := fmt.Sprintf("%s:%d", options.URI, options.GRPCPort)
+
+	cl, err := grpc.NewClient(grpcURI, grpc.WithTransportCredentials(insecureCredentials))
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("Connection established %s — %s\n", id, uri)
+	log.Printf("Connection established %s — %s\n", options.ID, grpcURI)
 
 	return &Node{
-		ID:     append([]byte{}, id...),
-		URI:    uri,
+		ID:         append([]byte{}, options.ID...),
+		URI:        options.URI,
+		GRPCPort:   options.GRPCPort,
+		HTTPPort:   options.HTTPPort,
+		ReplicaURI: options.ReplicationURI,
+
 		client: cl,
 		conn:   bloomproto.NewDistributedBloomFilterClient(cl),
 	}, nil
