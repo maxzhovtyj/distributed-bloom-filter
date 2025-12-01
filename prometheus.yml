@@ -14,3 +14,18 @@ scrape_configs:
         'app_3:9000',
         'app_4:9000',
       ]
+  - job_name: "nodeexporter"
+    static_configs:
+      - targets: [
+        '161.35.74.38:9100',
+        '134.209.244.237:9100',
+        '46.101.123.0:9100',
+      ]
+  - job_name: 'prod'
+    metrics_path: /metrics
+    static_configs:
+      - targets: [
+        '161.35.74.38:9000',
+        '134.209.244.237:9000',
+        '46.101.123.0:9000',
+      ]

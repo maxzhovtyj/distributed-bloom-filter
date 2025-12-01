@@ -1,6 +1,7 @@
 package bloomnode
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -31,6 +32,8 @@ var (
 )
 
 type Service struct {
+	masterURI string
+
 	bloomFilter   atomic.Pointer[bloom.BloomFilter]
 	elementsCount atomic.Uint64
 
@@ -184,4 +187,61 @@ func (s *Service) PrepareBloomFilter(
 	s.elementsCount.Store(uint64(req.ElementsCount))
 
 	return &bloomproto.PrepareBloomFilterResponse{}, nil
+}
+
+func (s *Service) SyncBloomFilter(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	buf := bufio.NewWriter(w)
+
+	n, err := s.bloomFilter.Load().WriteTo(buf)
+	if err != nil {
+		log.Println("Failed to write bloom filter for sync", err)
+		return
+	}
+
+	log.Printf("Successfully synced in %s wrote: %d\n", time.Since(start), n)
+}
+
+func (s *Service) RunSyncWorker() {
+	for {
+		s.doSyncBloomFilter()
+		time.Sleep(15 * time.Minute)
+	}
+}
+
+func (s *Service) doSyncBloomFilter() {
+	if s.masterURI == "" {
+		return
+	}
+
+	start := time.Now()
+	log.Println("Start syncing bloom filter")
+
+	uri := fmt.Sprintf("%s/sync", s.masterURI)
+
+	resp, err := http.Get(uri)
+	if err != nil {
+		log.Println("Failed to do http request for sync", err)
+		return
+	}
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Println("Failed to close bloom filter for sync", err)
+			return
+		}
+	}()
+
+	var bfd bloom.BloomFilter
+
+	n, err := bfd.ReadFrom(resp.Body)
+	if err != nil {
+		log.Println("Failed to read bloom filter for sync", err)
+		return
+	}
+
+	s.bloomFilter.Store(&bfd)
+
+	log.Printf("Bloom filter syncked in %s read: %d\n", time.Since(start), n)
 }

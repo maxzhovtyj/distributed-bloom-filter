@@ -2,6 +2,10 @@ ssh -i .ssh/digitalocean root@161.35.74.38
 ssh -i .ssh/digitalocean root@134.209.244.237
 ssh -i .ssh/digitalocean root@46.101.123.0
 
+```shell
+pm2 stop bloom-node;pm2 start /root/distributed-bloom-filter/bin/node-linux-amd64 --name="bloom-node"
+```
+
 
 Single bloom
 ```shell

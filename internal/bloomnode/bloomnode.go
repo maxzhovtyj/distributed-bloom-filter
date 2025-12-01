@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func Run() {
+func Run(masterNodeURI string) {
 	tcpSocket, err := net.Listen("tcp", ":8000")
 	if err != nil {
 		panic(err)
@@ -37,8 +37,13 @@ func Run() {
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/test", service.TestHTTP)
+	mux.HandleFunc("/sync", service.SyncBloomFilter)
 
 	log.Println("Start serving http on :9000")
 	if httpErr := http.ListenAndServe(":9000", mux); httpErr != nil {
