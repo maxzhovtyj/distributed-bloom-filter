@@ -40,8 +40,10 @@ type Service struct {
 	bloomproto.UnimplementedDistributedBloomFilterServer
 }
 
-func NewService() *Service {
-	return &Service{}
+func NewService(masterURI string) *Service {
+	return &Service{
+		masterURI: masterURI,
+	}
 }
 
 func (s *Service) Init() error {
@@ -49,6 +51,8 @@ func (s *Service) Init() error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+
+	go s.RunSyncWorker()
 
 	return nil
 }

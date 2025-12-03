@@ -25,6 +25,7 @@ message InsertResponse {}
 
 message PrepareBloomFilterRequest {
   int64 elementsCount = 1;
+  float fpr = 2;
 }
 
 message PrepareBloomFilterResponse {}

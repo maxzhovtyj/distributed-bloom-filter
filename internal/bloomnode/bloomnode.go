@@ -17,7 +17,7 @@ func Run(masterNodeURI string) {
 
 	grpcServer := grpc.NewServer()
 
-	service := NewService()
+	service := NewService(masterNodeURI)
 
 	err = service.Init()
 	if err != nil {
