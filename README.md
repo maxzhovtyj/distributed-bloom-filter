@@ -29,3 +29,28 @@ Distributed
 ```shell
 echo "GET http://localhost:8000/distributed/test?uid=32202899-2c89-419c-9837-d3f029708695" | vegeta attack -rate=4000/s -duration=15s -output=results_dbf.bin && cat results_dbf.bin | vegeta report
 ```
+
+### Node Exporter installation
+```shell
+sudo wget https://github.com/prometheus/node_exporter/releases/download/v1.10.2/node_exporter-1.10.2.linux-amd64.tar.gz
+sudo tar xzf node_exporter-1.10.2.linux-amd64.tar.gz
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# sudo rm -rf node_exporter-1.10.2.linux-amd64.tar.gz
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# sudo mv node_exporter-1.10.2.linux-amd64 /etc/node_exporter
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# vim /etc/systemd/system/node_exporter.service
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/etc/node_exporter/node_exporter
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# sudo systemctl daemon-reload
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# sudo systemctl enable node_exporter
+Created symlink /etc/systemd/system/multi-user.target.wants/node_exporter.service → /etc/systemd/system/node_exporter.service.
+root@ubuntu-s-1vcpu-2gb-fra1-03:~# sudo systemctl restart node_exporter
+root@ubuntu-s-1vcpu-2gb-fra1-03:~#
+```

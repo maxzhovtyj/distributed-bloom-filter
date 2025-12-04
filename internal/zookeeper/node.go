@@ -22,27 +22,45 @@ type Node struct {
 }
 
 func NewNode(options NodeOption) (*Node, error) {
-	insecureCredentials := insecure.NewCredentials()
-
-	grpcURI := fmt.Sprintf("%s:%d", options.URI, options.GRPCPort)
-
-	cl, err := grpc.NewClient(grpcURI, grpc.WithTransportCredentials(insecureCredentials))
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("Connection established %s — %s\n", options.ID, grpcURI)
-
 	return &Node{
 		ID:         append([]byte{}, options.ID...),
 		URI:        options.URI,
 		GRPCPort:   options.GRPCPort,
 		HTTPPort:   options.HTTPPort,
 		ReplicaURI: options.ReplicationURI,
-
-		client: cl,
-		conn:   bloomproto.NewDistributedBloomFilterClient(cl),
 	}, nil
+}
+
+func (n *Node) Init() error {
+	insecureCredentials := insecure.NewCredentials()
+
+	grpcURI := fmt.Sprintf("%s:%d", n.URI, n.GRPCPort)
+
+	cl, err := grpc.NewClient(grpcURI, grpc.WithTransportCredentials(insecureCredentials))
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Connection established %s — %s\n", n.ID, grpcURI)
+
+	n.client = cl
+	n.conn = bloomproto.NewDistributedBloomFilterClient(cl)
+
+	return nil
+}
+
+func (n *Node) Test(element []byte) (bool, error) {
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFunc()
+
+	response, err := n.conn.Test(ctx, &bloomproto.TestRequest{
+		Key: element,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return response.IsPresent, nil
 }
 
 func (n *Node) PrepareNode(elementsCount int) error {

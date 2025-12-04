@@ -10,5 +10,11 @@ deploy:
 load-test:
 	vegeta attack -targets=targets.txt -rate=5000/s -duration=60s -output=results.bin && cat results.bin | vegeta report
 
+zookeeper:
+	GOOS=linux GOARCH=amd64 go build -o bin/zookeeper-linux-amd64 ./cmd/zookeeper
+
 build-bloom-node:
 	GOOS=linux GOARCH=amd64 go build -o bin/node-linux-amd64 ./cmd/bloomnode
+
+uuid-generate:
+	GOOS=linux GOARCH=amd64 go build -o bin/uuids-linux-amd64 ./cmd/uuid-generator

@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const input = "/Users/maksymzhovtaniuk/Desktop/Дисертація/distributed-bloom-filter/data/idfa1.csv"
-
 type ClusterOptions struct {
 	Nodes           []NodeOption `yaml:"nodes"`
 	BloomFilterPath string       `json:"bloomFilterPath"`
@@ -127,9 +125,8 @@ func (s *Service) Run() {
 func (s *Service) InitClusterBloomFilter() {
 	ring := s.GetRing()
 
-	prepareClusterBloomFilter(ring)
-
-	setupDistributedBloomFilter(ring, map[string]struct{}{})
+	prepareClusterBloomFilter(s.cfg.BloomFilterPath, ring)
+	setupDistributedBloomFilter(s.cfg.BloomFilterPath, ring, map[string]struct{}{})
 }
 
 func (s *Service) AddNode(opt NodeOption) {
@@ -152,9 +149,8 @@ func (s *Service) AddNode(opt NodeOption) {
 		nodesToSkip[node.URI] = struct{}{}
 	}
 
-	prepareClusterBloomFilter(newRing)
-
-	setupDistributedBloomFilter(newRing, nodesToSkip)
+	prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
 
 	s.ring.Store(newRing)
 
@@ -181,14 +177,14 @@ func (s *Service) RemoveNode(id []byte) {
 		nodesToSkip[node.URI] = struct{}{}
 	}
 
-	prepareClusterBloomFilter(newRing)
-	setupDistributedBloomFilter(newRing, nodesToSkip)
+	prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
 
 	s.ring.Store(newRing)
 }
 
-func prepareClusterBloomFilter(ring *Ring) {
-	uidsPerNode := runEstimation(ring)
+func prepareClusterBloomFilter(input string, ring *Ring) {
+	uidsPerNode := runEstimation(input, ring)
 
 	fmt.Println("===========Estimation results")
 	for k, v := range uidsPerNode {
@@ -211,7 +207,7 @@ func prepareClusterBloomFilter(ring *Ring) {
 	ring.nodesMX.RUnlock()
 }
 
-func runEstimation(ring *Ring) map[string]int {
+func runEstimation(input string, ring *Ring) map[string]int {
 	ch := make(chan []byte, 10000)
 
 	uidsPerNode := make(map[string]int)
@@ -232,7 +228,7 @@ func runEstimation(ring *Ring) map[string]int {
 	return uidsPerNode
 }
 
-func setupDistributedBloomFilter(ring *Ring, nodesToSkip map[string]struct{}) {
+func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[string]struct{}) {
 	ch := make(chan []byte, 10000)
 
 	go func() {
