@@ -1,4 +1,4 @@
-bloomFilterPath: "./data/idfa1.csv"
+bloomFilterPath: "/root/distributed-bloom-filter/uuids_1764882530_1000000000.csv"
 nodes:
   - id: "ubuntu-s-1vcpu-2gb-fra1-01"
     uri: "161.35.74.38"

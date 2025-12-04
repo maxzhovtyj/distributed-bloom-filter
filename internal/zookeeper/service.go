@@ -221,7 +221,7 @@ func runEstimation(input string, ring *Ring) map[string]int {
 	go func() {
 		err := bloomdata.Read(input, ch)
 		if err != nil {
-			log.Println(err)
+			log.Fatalf("Failed to run estimation: %v", err)
 			return
 		}
 	}()
