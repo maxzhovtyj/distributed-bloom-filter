@@ -62,7 +62,11 @@ func (s *Service) GetRing() *Ring {
 
 func (s *Service) Run() {
 	start := time.Now()
-	s.InitClusterBloomFilter()
+	err := s.InitClusterBloomFilter()
+	if err != nil {
+		log.Panicf("Failed to init cluster bloom filter: %v", err)
+	}
+
 	log.Printf("Cluster Bloom Filter started in %s\n", time.Since(start))
 
 	mux := http.NewServeMux()
@@ -120,16 +124,23 @@ func (s *Service) Run() {
 		_, _ = w.Write(cluster)
 	})
 
-	if err := http.ListenAndServe(":7000", mux); err != nil {
+	log.Println("Start serving http on :7000")
+	if err = http.ListenAndServe(":7000", mux); err != nil {
 		panic(err)
 	}
 }
 
-func (s *Service) InitClusterBloomFilter() {
+func (s *Service) InitClusterBloomFilter() error {
 	ring := s.GetRing()
 
-	prepareClusterBloomFilter(s.cfg.BloomFilterPath, ring)
+	err := prepareClusterBloomFilter(s.cfg.BloomFilterPath, ring)
+	if err != nil {
+		return err
+	}
+
 	setupDistributedBloomFilter(s.cfg.BloomFilterPath, ring, map[string]struct{}{})
+
+	return nil
 }
 
 func (s *Service) AddNode(opt NodeOption) {
@@ -155,7 +166,11 @@ func (s *Service) AddNode(opt NodeOption) {
 		nodesToSkip[node.URI] = struct{}{}
 	}
 
-	prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	err = prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	if err != nil {
+		return
+	}
+
 	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
 
 	s.ring.Store(newRing)
@@ -183,14 +198,21 @@ func (s *Service) RemoveNode(id []byte) {
 		nodesToSkip[node.URI] = struct{}{}
 	}
 
-	prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	err := prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
+	if err != nil {
+		return
+	}
+
 	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
 
 	s.ring.Store(newRing)
 }
 
-func prepareClusterBloomFilter(input string, ring *Ring) {
-	uidsPerNode := runEstimation(input, ring)
+func prepareClusterBloomFilter(input string, ring *Ring) error {
+	uidsPerNode, err := runEstimation(input, ring)
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("===========Estimation results")
 	for k, v := range uidsPerNode {
@@ -202,7 +224,7 @@ func prepareClusterBloomFilter(input string, ring *Ring) {
 	for _, node := range ring.Nodes {
 		elements := uidsPerNode[string(node.ID)]
 
-		err := node.PrepareNode(elements)
+		err = node.PrepareNode(elements)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -211,19 +233,24 @@ func prepareClusterBloomFilter(input string, ring *Ring) {
 		log.Printf("Prepared bloom filter %s — %d", node.ID, elements)
 	}
 	ring.nodesMX.RUnlock()
+
+	return nil
 }
 
-func runEstimation(input string, ring *Ring) map[string]int {
+func runEstimation(input string, ring *Ring) (map[string]int, error) {
 	ch := make(chan []byte, 10000)
 
 	uidsPerNode := make(map[string]int)
+	errBuf := make(chan error, 1)
 
 	go func(i string) {
 		err := bloomdata.Read(input, ch)
 		if err != nil {
-			log.Fatalf("Failed to run estimation: %v", err)
+			errBuf <- err
 			return
 		}
+
+		close(ch)
 	}(input)
 
 	for uid := range ch {
@@ -231,7 +258,12 @@ func runEstimation(input string, ring *Ring) map[string]int {
 		uidsPerNode[string(node.ID)]++
 	}
 
-	return uidsPerNode
+	err := <-errBuf
+	if err != nil {
+		return nil, err
+	}
+
+	return uidsPerNode, nil
 }
 
 func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[string]struct{}) {
