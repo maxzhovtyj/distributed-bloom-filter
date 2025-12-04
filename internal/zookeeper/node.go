@@ -21,14 +21,14 @@ type Node struct {
 	conn   bloomproto.DistributedBloomFilterClient
 }
 
-func NewNode(options NodeOption) (*Node, error) {
+func NewNode(options NodeOption) *Node {
 	return &Node{
 		ID:         append([]byte{}, options.ID...),
 		URI:        options.URI,
 		GRPCPort:   options.GRPCPort,
 		HTTPPort:   options.HTTPPort,
 		ReplicaURI: options.ReplicationURI,
-	}, nil
+	}
 }
 
 func (n *Node) Init() error {

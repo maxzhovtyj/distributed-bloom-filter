@@ -24,24 +24,26 @@ func Hash(key []byte) uint32 {
 	return murmur3.Sum32(key)
 }
 
-func (chr *Ring) AddNode(opt NodeOption) *Node {
+func (chr *Ring) AddNode(opt NodeOption) (*Node, error) {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
-	var err error
-
 	hash := Hash([]byte(opt.ID))
 
-	chr.Nodes[hash], err = NewNode(opt)
+	n := NewNode(opt)
+
+	err := n.Init()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
+	chr.Nodes[hash] = n
 
 	chr.Hashes = append(chr.Hashes, hash)
 
 	slices.Sort(chr.Hashes)
 
-	return chr.Nodes[hash]
+	return chr.Nodes[hash], nil
 }
 
 func (chr *Ring) RemoveNode(id []byte) {

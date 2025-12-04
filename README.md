@@ -6,6 +6,10 @@ ssh -i .ssh/digitalocean root@46.101.123.0
 pm2 stop bloom-node;pm2 start /root/distributed-bloom-filter/bin/node-linux-amd64 --name="bloom-node"
 ```
 
+```shell
+pm2 stop zookeeper;pm2 start /root/distributed-bloom-filter/bin/zookeeper-linux-amd64 --name="zookeeper"
+```
+
 
 Single bloom
 ```shell

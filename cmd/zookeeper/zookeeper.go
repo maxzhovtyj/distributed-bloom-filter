@@ -18,18 +18,24 @@ func main() {
 
 	raw, err := os.ReadFile(*configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open config: %v", err)
+		return
 	}
 
 	clusterOptions := new(zookeeper.ClusterOptions)
 
 	if err = yaml.Unmarshal(raw, clusterOptions); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to unmarshal config: %v", err)
+		return
 	}
 
-	service := zookeeper.New(clusterOptions)
+	service, err := zookeeper.New(clusterOptions)
+	if err != nil {
+		log.Fatalf("Failed to create zookeeper service: %v", err)
+		return
+	}
 
-	service.Run()
+	go service.Run()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()

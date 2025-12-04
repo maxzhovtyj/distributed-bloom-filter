@@ -33,13 +33,16 @@ type Service struct {
 	ring atomic.Pointer[Ring]
 }
 
-func New(cluster *ClusterOptions) *Service {
+func New(cluster *ClusterOptions) (*Service, error) {
 	r := NewRing()
 
 	start := time.Now()
 
 	for _, node := range cluster.Nodes {
-		r.AddNode(node)
+		_, err := r.AddNode(node)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add node %s: %w", node.ID, err)
+		}
 	}
 
 	log.Printf("Cluster ring cretead in %s\n", time.Since(start))
@@ -50,7 +53,7 @@ func New(cluster *ClusterOptions) *Service {
 
 	s.ring.Store(r)
 
-	return s
+	return s, nil
 }
 
 func (s *Service) GetRing() *Ring {
@@ -137,7 +140,10 @@ func (s *Service) AddNode(opt NodeOption) {
 	newRing := NewRing()
 
 	ring.CopyTo(newRing)
-	newNode := newRing.AddNode(opt)
+	newNode, err := newRing.AddNode(opt)
+	if err != nil {
+		panic(err)
+	}
 
 	nodesToSkip := make(map[string]struct{})
 
