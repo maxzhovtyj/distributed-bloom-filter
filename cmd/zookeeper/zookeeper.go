@@ -22,6 +22,10 @@ func main() {
 		return
 	}
 
+	log.Println("Starting zookeeper service...")
+
+	log.Printf("Config: %s\n", raw)
+
 	clusterOptions := new(zookeeper.ClusterOptions)
 
 	if err = yaml.Unmarshal(raw, clusterOptions); err != nil {
