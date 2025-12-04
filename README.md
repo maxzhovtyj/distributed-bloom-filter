@@ -7,7 +7,7 @@ pm2 stop bloom-node;pm2 start /root/distributed-bloom-filter/bin/node-linux-amd6
 ```
 
 ```shell
-pm2 stop zookeeper;pm2 start /root/distributed-bloom-filter/bin/zookeeper-linux-amd64 --name="zookeeper"
+pm2 stop zookeeper;pm2 start /root/distributed-bloom-filter/bin/zookeeper-linux-amd64 --name="zookeeper" -- -config=/root/distributed-bloom-filter/cmd/zookeeper/config.yml
 ```
 
 

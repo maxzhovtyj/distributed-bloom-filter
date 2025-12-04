@@ -11,8 +11,8 @@ import (
 )
 
 type ClusterOptions struct {
+	BloomFilterPath string       `yaml:"bloomFilterPath"`
 	Nodes           []NodeOption `yaml:"nodes"`
-	BloomFilterPath string       `json:"bloomFilterPath"`
 }
 
 type NodeOption struct {
@@ -218,13 +218,13 @@ func runEstimation(input string, ring *Ring) map[string]int {
 
 	uidsPerNode := make(map[string]int)
 
-	go func() {
+	go func(i string) {
 		err := bloomdata.Read(input, ch)
 		if err != nil {
 			log.Fatalf("Failed to run estimation: %v", err)
 			return
 		}
-	}()
+	}(input)
 
 	for uid := range ch {
 		node := ring.GetNode(uid)
