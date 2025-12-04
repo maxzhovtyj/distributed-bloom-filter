@@ -138,7 +138,10 @@ func (s *Service) InitClusterBloomFilter() error {
 		return err
 	}
 
-	setupDistributedBloomFilter(s.cfg.BloomFilterPath, ring, map[string]struct{}{})
+	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, ring, map[string]struct{}{})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -171,7 +174,10 @@ func (s *Service) AddNode(opt NodeOption) {
 		return
 	}
 
-	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	if err != nil {
+		return
+	}
 
 	s.ring.Store(newRing)
 
@@ -203,7 +209,10 @@ func (s *Service) RemoveNode(id []byte) {
 		return
 	}
 
-	setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	if err != nil {
+		return
+	}
 
 	s.ring.Store(newRing)
 }
