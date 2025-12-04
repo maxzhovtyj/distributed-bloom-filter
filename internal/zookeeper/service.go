@@ -250,7 +250,7 @@ func runEstimation(input string, ring *Ring) (map[string]int, error) {
 			return
 		}
 
-		close(ch)
+		close(errBuf)
 	}(input)
 
 	for uid := range ch {
