@@ -214,11 +214,11 @@ func prepareClusterBloomFilter(input string, ring *Ring) error {
 		return err
 	}
 
-	fmt.Println("===========Estimation results")
+	log.Println("===========Estimation results")
 	for k, v := range uidsPerNode {
-		fmt.Printf("~ %s: %d\n", k, v)
+		log.Printf("~ %s: %d\n", k, v)
 	}
-	fmt.Println("===========")
+	log.Println("===========")
 
 	ring.nodesMX.RLock()
 	for _, node := range ring.Nodes {
@@ -266,15 +266,18 @@ func runEstimation(input string, ring *Ring) (map[string]int, error) {
 	return uidsPerNode, nil
 }
 
-func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[string]struct{}) {
+func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[string]struct{}) error {
 	ch := make(chan []byte, 10000)
+	errBuf := make(chan error, 1)
 
 	go func() {
 		err := bloomdata.Read(input, ch)
 		if err != nil {
-			log.Println(err)
+			errBuf <- err
 			return
 		}
+
+		close(errBuf)
 	}()
 
 	chanPerNode := make(map[string]chan []byte)
@@ -300,7 +303,7 @@ func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[strin
 		go func() {
 			err := node.InsertElements(nodeCh)
 			if err != nil {
-				log.Println(err)
+				log.Printf("Failed to insert elements: %v", err)
 				return
 			}
 		}()
@@ -322,7 +325,12 @@ func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[strin
 		nodeCh <- uid
 	}
 
-	return
+	err := <-errBuf
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) Shutdown() {

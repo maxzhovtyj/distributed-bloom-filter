@@ -28,7 +28,7 @@ func Read(input string, output chan<- []byte) error {
 			return err
 		}
 
-		if len(read) != 2 {
+		if len(read) == 0 {
 			continue
 		}
 
