@@ -63,12 +63,13 @@ func (s *Service) GetRing() *Ring {
 
 func (s *Service) Run() {
 	start := time.Now()
+
 	err := s.InitClusterBloomFilter()
 	if err != nil {
 		log.Panicf("Failed to init cluster bloom filter: %v", err)
 	}
 
-	log.Printf("Cluster Bloom Filter started in %s\n", time.Since(start))
+	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
@@ -220,6 +221,11 @@ func (s *Service) RemoveNode(id []byte) {
 }
 
 func prepareClusterBloomFilter(input string, ring *Ring) error {
+	start := time.Now()
+	defer func() {
+		log.Printf("Cluster bloom filter prepared in %s\n", time.Since(start))
+	}()
+
 	uidsPerNode, err := runEstimation(input, ring)
 	if err != nil {
 		return err
