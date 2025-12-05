@@ -21,7 +21,7 @@ func main() {
 		log.Printf("Finished in %s", time.Since(start))
 	}()
 
-	filename := fmt.Sprintf("./uuids_%d_%d.csv", time.Now().Unix(), *elements)
+	filename := fmt.Sprintf("./uuids_%d.csv", *elements)
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		panic(err)

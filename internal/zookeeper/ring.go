@@ -1,27 +1,28 @@
 package zookeeper
 
 import (
-	"github.com/spaolacci/murmur3"
+	//"github.com/spaolacci/murmur3"
+	"github.com/twmb/murmur3"
 	"slices"
 	"sync"
 )
 
 type Ring struct {
-	Nodes   map[uint32]*Node
+	Nodes   map[uint64]*Node
 	nodesMX sync.RWMutex
 
-	Hashes []uint32
+	Hashes []uint64
 }
 
 func NewRing() *Ring {
 	return &Ring{
-		Nodes:  make(map[uint32]*Node),
-		Hashes: []uint32{},
+		Nodes:  make(map[uint64]*Node),
+		Hashes: []uint64{},
 	}
 }
 
-func Hash(key []byte) uint32 {
-	return murmur3.Sum32(key)
+func Hash(key []byte) uint64 {
+	return murmur3.Sum64(key)
 }
 
 func (chr *Ring) AddNode(opt NodeOption) (*Node, error) {
@@ -54,12 +55,12 @@ func (chr *Ring) RemoveNode(id []byte) {
 
 	delete(chr.Nodes, h)
 
-	slices.DeleteFunc(chr.Hashes, func(u uint32) bool {
+	slices.DeleteFunc(chr.Hashes, func(u uint64) bool {
 		return u == h
 	})
 }
 
-func (chr *Ring) GetNextNodeIndex(hash uint32) int {
+func (chr *Ring) GetNextNodeIndex(hash uint64) int {
 	if len(chr.Hashes) == 0 {
 		return -1
 	}
@@ -73,7 +74,7 @@ func (chr *Ring) GetNextNodeIndex(hash uint32) int {
 	return 0
 }
 
-func (chr *Ring) GetNodeByHash(hash uint32) *Node {
+func (chr *Ring) GetNodeByHash(hash uint64) *Node {
 	chr.nodesMX.RLock()
 	defer chr.nodesMX.RUnlock()
 
