@@ -1,4 +1,4 @@
-bloomFilterPath: "/Users/maksymzhovtaniuk/Desktop/Дисертація/distributed-bloom-filter/data/idfa1.csv"
+bloomFilterPath: "/Users/maksymzhovtaniuk/Desktop/Дисертація/distributed-bloom-filter/data/uuids_1764881258.csv"
 nodes:
   - id: "ubuntu-s-1vcpu-2gb-fra1-01"
     uri: "161.35.74.38"

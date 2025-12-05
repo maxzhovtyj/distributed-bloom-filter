@@ -2,6 +2,9 @@ ssh -i .ssh/digitalocean root@161.35.74.38
 ssh -i .ssh/digitalocean root@134.209.244.237
 ssh -i .ssh/digitalocean root@46.101.123.0
 
+[//]: # (zookeeper)
+ssh -i .ssh/digitalocean root@64.225.105.207
+
 ```shell
 pm2 stop bloom-node;pm2 start /root/distributed-bloom-filter/bin/node-linux-amd64 --name="bloom-node"
 ```
@@ -10,6 +13,8 @@ pm2 stop bloom-node;pm2 start /root/distributed-bloom-filter/bin/node-linux-amd6
 pm2 stop zookeeper;pm2 start /root/distributed-bloom-filter/bin/zookeeper-linux-amd64 --name="zookeeper" -- -config=/root/distributed-bloom-filter/cmd/zookeeper/config.yml
 ```
 
+http://64.225.105.207:9090/classic/targets
+http://64.225.105.207:3000
 
 Single bloom
 ```shell

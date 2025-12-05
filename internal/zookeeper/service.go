@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/maxzhovtyj/distributed-bloom-filter/pkg/bloomdata"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"sync/atomic"
@@ -123,6 +124,7 @@ func (s *Service) Run() {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(cluster)
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 
 	log.Println("Start serving http on :7000")
 	if err = http.ListenAndServe(":7000", mux); err != nil {
