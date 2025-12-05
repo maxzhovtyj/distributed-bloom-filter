@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"fmt"
 	//"github.com/spaolacci/murmur3"
 	"github.com/twmb/murmur3"
 	"slices"
@@ -29,8 +30,6 @@ func (chr *Ring) AddNode(opt NodeOption) (*Node, error) {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
-	hash := Hash([]byte(opt.ID))
-
 	n := NewNode(opt)
 
 	err := n.Init()
@@ -38,13 +37,16 @@ func (chr *Ring) AddNode(opt NodeOption) (*Node, error) {
 		return nil, err
 	}
 
-	chr.Nodes[hash] = n
+	for i := range opt.VMNodes + 1 {
+		nodeID := fmt.Sprintf("%s_%d", opt.ID, i)
+		hash := Hash([]byte(nodeID))
 
-	chr.Hashes = append(chr.Hashes, hash)
+		chr.Nodes[hash] = n
+		chr.Hashes = append(chr.Hashes, hash)
+		slices.Sort(chr.Hashes)
+	}
 
-	slices.Sort(chr.Hashes)
-
-	return chr.Nodes[hash], nil
+	return n, nil
 }
 
 func (chr *Ring) RemoveNode(id []byte) {
