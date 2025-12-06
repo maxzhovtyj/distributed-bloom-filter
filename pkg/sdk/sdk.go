@@ -24,10 +24,10 @@ func NewDistributedBloomFilter(uri string) *DistributedBloomFilter {
 	}
 }
 
-func (d *DistributedBloomFilter) Init() error {
-	r, err := syncDistributedBloomFilterRing(d.ZookeeperURI)
+func getNewRing(uri string) (*ring.Ring, error) {
+	r, err := syncDistributedBloomFilterRing(uri)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, node := range r.Nodes {
@@ -37,7 +37,7 @@ func (d *DistributedBloomFilter) Init() error {
 
 		err = node.Init()
 		if err != nil {
-			return fmt.Errorf("failed to init node: %v", err)
+			return nil, fmt.Errorf("failed to init node: %v", err)
 		}
 
 		log.Printf("Node %s initialized\n", node.ID)
@@ -52,7 +52,16 @@ func (d *DistributedBloomFilter) Init() error {
 		n.CopyConnTo(node)
 	}
 
-	d.ring.Store(r)
+	return r, nil
+}
+
+func (d *DistributedBloomFilter) Init() error {
+	newRing, err := getNewRing(d.ZookeeperURI)
+	if err != nil {
+		return err
+	}
+
+	d.ring.Store(newRing)
 
 	go d.runSyncRingWorker()
 
@@ -61,16 +70,10 @@ func (d *DistributedBloomFilter) Init() error {
 
 func (d *DistributedBloomFilter) runSyncRingWorker() {
 	for range time.Tick(5 * time.Minute) {
-		newRing, err := syncDistributedBloomFilterRing(d.ZookeeperURI)
+		newRing, err := getNewRing(d.ZookeeperURI)
 		if err != nil {
+			log.Println("Failed to sync ring", err)
 			continue
-		}
-
-		for _, node := range newRing.Nodes {
-			err = node.Init()
-			if err != nil {
-				log.Panic(err)
-			}
 		}
 
 		d.ring.Store(newRing)
