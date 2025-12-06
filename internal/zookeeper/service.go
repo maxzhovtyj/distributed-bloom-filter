@@ -4,11 +4,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/maxzhovtyj/distributed-bloom-filter/pkg/bloomdata"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"sync/atomic"
 	"time"
+)
+
+var (
+	bloomFilterInitializationLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "bloom_filter_initialization_latency",
+		Help: "The total latency of bloom filter initialization",
+	})
+
+	bloomFilterTotalSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "bloom_filter_total_size",
+		Help: "The total size of bloom filter in bytes",
+	})
 )
 
 type ClusterOptions struct {
@@ -47,7 +61,7 @@ func New(cluster *ClusterOptions) (*Service, error) {
 		}
 	}
 
-	log.Printf("Cluster ring cretead in %s\n", time.Since(start))
+	log.Printf("Cluster ring created in %s\n", time.Since(start))
 
 	s := &Service{
 		cfg: cluster,
@@ -70,7 +84,7 @@ func (s *Service) Run() {
 		log.Panicf("Failed to init cluster bloom filter: %v", err)
 	}
 
-	log.Println(s.ring.Load().String())
+	//log.Println(s.ring.Load().String())
 	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
 
 	mux := http.NewServeMux()
@@ -136,6 +150,11 @@ func (s *Service) Run() {
 }
 
 func (s *Service) InitClusterBloomFilter() error {
+	start := time.Now()
+	defer func() {
+		bloomFilterInitializationLatency.Observe(time.Since(start).Seconds())
+	}()
+
 	ring := s.GetRing()
 
 	err := prepareClusterBloomFilter(s.cfg.BloomFilterPath, ring)
@@ -233,14 +252,24 @@ func prepareClusterBloomFilter(input string, ring *Ring) error {
 		return err
 	}
 
-	log.Println("===========Estimation results")
-	for k, v := range uidsPerNode {
-		log.Printf("~ %s: %d\n", k, v)
+	//log.Println("===========Estimation results")
+	//for k, v := range uidsPerNode {
+	//	log.Printf("~ %s: %d\n", k, v)
+	//}
+	//log.Println("===========")
+
+	totalSize := 0
+	for _, v := range uidsPerNode {
+		totalSize += v
 	}
-	log.Println("===========")
+	bloomFilterTotalSize.Set(float64(totalSize))
 
 	ring.nodesMX.RLock()
 	for _, node := range ring.Nodes {
+		if node.IsVM {
+			continue
+		}
+
 		elements := uidsPerNode[string(node.ID)]
 
 		err = node.PrepareNode(elements)
@@ -272,9 +301,17 @@ func runEstimation(input string, ring *Ring) (map[string]int, error) {
 		close(errBuf)
 	}(input)
 
+	var id []byte
+
 	for uid := range ch {
 		node := ring.GetNode(uid)
-		uidsPerNode[string(node.ID)]++
+		if node.IsVM {
+			id = append(id[:0], node.PhysicalNodeID...)
+		} else {
+			id = append(id[:0], node.ID...)
+		}
+
+		uidsPerNode[string(id)]++
 	}
 
 	err := <-errBuf
@@ -310,6 +347,10 @@ func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[strin
 
 	ring.nodesMX.RLock()
 	for _, node := range ring.Nodes {
+		if node.IsVM {
+			continue
+		}
+
 		nodeID := string(node.ID)
 
 		if _, ok := nodesToSkip[nodeID]; ok {
@@ -331,9 +372,16 @@ func setupDistributedBloomFilter(input string, ring *Ring, nodesToSkip map[strin
 	}
 	ring.nodesMX.RUnlock()
 
+	var nodeID string
+
 	for uid := range ch {
 		node := ring.GetNode(uid)
-		nodeID := string(node.ID)
+
+		if node.IsVM {
+			nodeID = string(node.PhysicalNodeID)
+		} else {
+			nodeID = string(node.ID)
+		}
 
 		if _, ok := nodesToSkip[nodeID]; ok {
 			continue

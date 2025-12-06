@@ -23,7 +23,9 @@ type Node struct {
 	HTTPPort   int
 	ReplicaURI string
 	VMNodes    []VMNode
-	IsVM       bool
+
+	IsVM           bool
+	PhysicalNodeID []byte
 
 	client *grpc.ClientConn
 	conn   bloomproto.DistributedBloomFilterClient

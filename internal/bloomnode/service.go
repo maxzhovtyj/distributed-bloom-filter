@@ -29,6 +29,15 @@ var (
 		Name: "test_request_latency",
 		Help: "The total latency of processed events",
 	}, []string{"protocol"})
+
+	insertRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "insert_requests_count",
+		Help: "The total number of processed events",
+	})
+	insertRequestLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "insert_request_latency",
+		Help: "The total latency of processed events",
+	})
 )
 
 type Service struct {
@@ -117,6 +126,12 @@ func (s *Service) Test(ctx context.Context, request *bloomproto.TestRequest) (*b
 }
 
 func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest, bloomproto.InsertResponse]) error {
+	insertRequests.Inc()
+	start := time.Now()
+	defer func() {
+		insertRequestLatency.Observe(time.Since(start).Seconds())
+	}()
+
 	bfd := bloom.NewWithEstimates(uint(s.elementsCount.Load()), 0.001)
 
 	for {

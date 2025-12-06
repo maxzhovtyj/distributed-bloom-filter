@@ -75,6 +75,7 @@ func (chr *Ring) initVirtualNodes(opt NodeOption, n *Node) {
 		vmNode.ID = []byte(fmt.Sprintf("%s_%d", opt.ID, i))
 		vmNode.Hash = Hash(vmNode.ID)
 		vmNode.IsVM = true
+		vmNode.PhysicalNodeID = append(vmNode.PhysicalNodeID, n.ID...)
 
 		n.VMNodes = append(n.VMNodes, VMNode{
 			ID:   append([]byte{}, vmNode.ID...),
