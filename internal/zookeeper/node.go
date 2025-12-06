@@ -128,3 +128,8 @@ func (n *Node) CopyTo(node *Node) {
 	node.client = n.client
 	node.conn = n.conn
 }
+
+func (n *Node) CopyConnTo(dst *Node) {
+	dst.conn = n.conn
+	dst.client = n.client
+}

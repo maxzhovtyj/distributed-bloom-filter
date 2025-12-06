@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	ring "github.com/maxzhovtyj/distributed-bloom-filter/internal/zookeeper"
 )
@@ -30,15 +31,50 @@ func (d *DistributedBloomFilter) Init() error {
 	}
 
 	for _, node := range r.Nodes {
+		if node.IsVM {
+			continue
+		}
+
 		err = node.Init()
 		if err != nil {
-			log.Panic(err)
+			return fmt.Errorf("failed to init node: %v", err)
 		}
+
+		log.Printf("Node %s initialized\n", node.ID)
+	}
+
+	for _, node := range r.Nodes {
+		if !node.IsVM {
+			continue
+		}
+
+		n := r.Nodes[ring.Hash(node.PhysicalNodeID)]
+		n.CopyConnTo(node)
 	}
 
 	d.ring.Store(r)
 
+	go d.runSyncRingWorker()
+
 	return nil
+}
+
+func (d *DistributedBloomFilter) runSyncRingWorker() {
+	for range time.Tick(5 * time.Minute) {
+		newRing, err := syncDistributedBloomFilterRing(d.ZookeeperURI)
+		if err != nil {
+			continue
+		}
+
+		for _, node := range newRing.Nodes {
+			err = node.Init()
+			if err != nil {
+				log.Panic(err)
+			}
+		}
+
+		d.ring.Store(newRing)
+	}
 }
 
 func (d *DistributedBloomFilter) Test(element []byte) (bool, error) {
@@ -55,11 +91,15 @@ func (d *DistributedBloomFilter) Test(element []byte) (bool, error) {
 }
 
 func syncDistributedBloomFilterRing(host string) (*ring.Ring, error) {
-	uri := fmt.Sprintf("http://%s/sync", host)
+	uri := fmt.Sprintf("http://%s/cluster", host)
 
 	resp, err := http.Get(uri)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to do http request for sync: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to sync bloom filter: %s", resp.Status)
 	}
 
 	defer func() {
@@ -73,7 +113,7 @@ func syncDistributedBloomFilterRing(host string) (*ring.Ring, error) {
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	if err = json.Unmarshal(raw, &r); err != nil {

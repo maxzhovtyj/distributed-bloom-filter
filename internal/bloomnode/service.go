@@ -35,8 +35,9 @@ var (
 		Help: "The total number of processed events",
 	})
 	insertRequestLatency = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "insert_request_latency",
-		Help: "The total latency of processed events",
+		Name:    "insert_request_latency",
+		Help:    "The total latency of processed events",
+		Buckets: prometheus.ExponentialBuckets(100, 1.6, 10),
 	})
 )
 

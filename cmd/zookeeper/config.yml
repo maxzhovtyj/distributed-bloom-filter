@@ -27,4 +27,3 @@ nodes:
     memoryLimit: 2
     networkLimit: 1
     vmNodes: 128
-

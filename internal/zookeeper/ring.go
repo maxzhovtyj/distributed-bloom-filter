@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -93,13 +94,24 @@ func (chr *Ring) RemoveNode(id []byte) {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
-	h := Hash(id)
+	var nodeID []byte
 
-	delete(chr.Nodes, h)
+	for hash, node := range chr.Nodes {
+		if node.IsVM {
+			nodeID = append(nodeID[:0], node.PhysicalNodeID...)
+		} else {
+			nodeID = append(nodeID[:0], node.ID...)
+		}
 
-	slices.DeleteFunc(chr.Hashes, func(u uint64) bool {
-		return u == h
-	})
+		if !bytes.Equal(id, nodeID) {
+			continue
+		}
+
+		delete(chr.Nodes, hash)
+		slices.DeleteFunc(chr.Hashes, func(u uint64) bool {
+			return u == hash
+		})
+	}
 }
 
 func (chr *Ring) GetNextNodeIndex(hash uint64) int {

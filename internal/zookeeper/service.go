@@ -15,8 +15,24 @@ import (
 
 var (
 	bloomFilterInitializationLatency = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "bloom_filter_initialization_latency",
-		Help: "The total latency of bloom filter initialization",
+		Name:    "bloom_filter_initialization_latency",
+		Help:    "The total latency of bloom filter initialization",
+		Buckets: prometheus.ExponentialBuckets(100, 1.6, 10),
+	})
+	bloomFilterPrepareLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bloom_filter_prepare_latency",
+		Help:    "The total latency of bloom filter preparation",
+		Buckets: prometheus.ExponentialBuckets(100, 1.6, 10),
+	})
+	bloomFilterAddNodeLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bloom_filter_add_node_latency",
+		Help:    "The total latency of bloom filter add node operation",
+		Buckets: prometheus.ExponentialBuckets(100, 1.6, 10),
+	})
+	bloomFilterRemoveNodeLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "bloom_filter_remove_node_latency",
+		Help:    "The total latency of bloom filter remove node operation",
+		Buckets: prometheus.ExponentialBuckets(100, 1.6, 10),
 	})
 
 	bloomFilterTotalSize = promauto.NewGauge(prometheus.GaugeOpts{
@@ -76,17 +92,7 @@ func (s *Service) GetRing() *Ring {
 	return s.ring.Load()
 }
 
-func (s *Service) Run() {
-	start := time.Now()
-
-	err := s.InitClusterBloomFilter()
-	if err != nil {
-		log.Panicf("Failed to init cluster bloom filter: %v", err)
-	}
-
-	//log.Println(s.ring.Load().String())
-	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
-
+func (s *Service) RunHTTPHandler() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		uid := r.URL.Query().Get("uid")
@@ -99,21 +105,16 @@ func (s *Service) Run() {
 
 		_, _ = w.Write([]byte(fmt.Sprintf("%s", node.ID)))
 	})
-	mux.HandleFunc("/add-node", func(w http.ResponseWriter, r *http.Request) {
-		// TODO
-		//nodeID := []byte(r.URL.Query().Get("nodeID"))
-		//if len(nodeID) == 0 {
-		//	_, _ = w.Write([]byte("node id not found"))
-		//	return
-		//}
-		//
-		//uri := r.URL.Query().Get("uri")
-		//if len(uri) == 0 {
-		//	_, _ = w.Write([]byte("uri not found"))
-		//	return
-		//}
-		//
-		//s.AddNode(nodeID, uri)
+	mux.HandleFunc("POST /add-node", func(w http.ResponseWriter, r *http.Request) {
+		var node NodeOption
+
+		err := json.NewDecoder(r.Body).Decode(&node)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		s.AddNode(node)
 	})
 	mux.HandleFunc("/remove-node", func(w http.ResponseWriter, r *http.Request) {
 		nodeID := []byte(r.URL.Query().Get("nodeID"))
@@ -144,16 +145,27 @@ func (s *Service) Run() {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	log.Println("Start serving http on :7000")
-	if err = http.ListenAndServe(":7000", mux); err != nil {
+	if err := http.ListenAndServe(":7000", mux); err != nil {
 		panic(err)
 	}
 }
 
+func (s *Service) Run() {
+	go s.RunHTTPHandler()
+
+	start := time.Now()
+
+	err := s.InitClusterBloomFilter()
+	if err != nil {
+		log.Panicf("Failed to init cluster bloom filter: %v", err)
+	}
+
+	//log.Println(s.ring.Load().String())
+	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
+}
+
 func (s *Service) InitClusterBloomFilter() error {
 	start := time.Now()
-	defer func() {
-		bloomFilterInitializationLatency.Observe(time.Since(start).Seconds())
-	}()
 
 	ring := s.GetRing()
 
@@ -167,30 +179,21 @@ func (s *Service) InitClusterBloomFilter() error {
 		return err
 	}
 
+	bloomFilterInitializationLatency.Observe(time.Since(start).Seconds())
+
 	return nil
 }
 
 func (s *Service) AddNode(opt NodeOption) {
+	start := time.Now()
+
 	ring := s.GetRing()
-
-	nodeToReBalance := ring.GetNode([]byte(opt.ID))
-
 	newRing := NewRing()
-
 	ring.CopyTo(newRing)
-	newNode, err := newRing.AddNode(opt)
+
+	_, err := newRing.AddNode(opt)
 	if err != nil {
 		panic(err)
-	}
-
-	nodesToSkip := make(map[string]struct{})
-
-	for _, node := range ring.Nodes {
-		if node == nodeToReBalance || node == newNode {
-			continue
-		}
-
-		nodesToSkip[node.URI] = struct{}{}
 	}
 
 	err = prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
@@ -198,54 +201,45 @@ func (s *Service) AddNode(opt NodeOption) {
 		return
 	}
 
-	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, map[string]struct{}{})
 	if err != nil {
 		return
 	}
 
 	s.ring.Store(newRing)
 
+	bloomFilterAddNodeLatency.Observe(time.Since(start).Seconds())
 	log.Println("Nodes has been successfully rebalanced")
 }
 
 func (s *Service) RemoveNode(id []byte) {
-	ring := s.GetRing()
+	start := time.Now()
 
-	nextNode := ring.GetNodeByHash(Hash(id) + 1)
+	ring := s.GetRing()
 
 	newRing := NewRing()
 
 	ring.CopyTo(newRing)
 	newRing.RemoveNode(id)
 
-	nodesToSkip := make(map[string]struct{})
-
-	for _, node := range newRing.Nodes {
-		if node == nextNode {
-			continue
-		}
-
-		nodesToSkip[node.URI] = struct{}{}
-	}
-
 	err := prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
 	if err != nil {
 		return
 	}
 
-	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, nodesToSkip)
+	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, make(map[string]struct{}))
 	if err != nil {
 		return
 	}
 
 	s.ring.Store(newRing)
+
+	bloomFilterRemoveNodeLatency.Observe(time.Since(start).Seconds())
+	log.Println("Node has been successfully deleted")
 }
 
 func prepareClusterBloomFilter(input string, ring *Ring) error {
 	start := time.Now()
-	defer func() {
-		log.Printf("Cluster bloom filter prepared in %s\n", time.Since(start))
-	}()
 
 	uidsPerNode, err := runEstimation(input, ring)
 	if err != nil {
@@ -281,6 +275,8 @@ func prepareClusterBloomFilter(input string, ring *Ring) error {
 		log.Printf("Prepared bloom filter %s — %d", node.ID, elements)
 	}
 	ring.nodesMX.RUnlock()
+
+	bloomFilterPrepareLatency.Observe(time.Since(start).Seconds())
 
 	return nil
 }
