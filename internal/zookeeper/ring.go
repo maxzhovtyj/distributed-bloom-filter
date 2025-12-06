@@ -2,6 +2,8 @@ package zookeeper
 
 import (
 	"fmt"
+	"strings"
+
 	//"github.com/spaolacci/murmur3"
 	"github.com/twmb/murmur3"
 	"slices"
@@ -22,6 +24,19 @@ func NewRing() *Ring {
 	}
 }
 
+func (chr *Ring) String() string {
+	chr.nodesMX.RLock()
+	defer chr.nodesMX.RUnlock()
+
+	var buf strings.Builder
+
+	for i, h := range chr.Hashes {
+		buf.WriteString(fmt.Sprintf("#%d — %d — node id %s\n", i, h, chr.Nodes[h].ID))
+	}
+
+	return buf.String()
+}
+
 func Hash(key []byte) uint64 {
 	return murmur3.Sum64(key)
 }
@@ -30,23 +45,47 @@ func (chr *Ring) AddNode(opt NodeOption) (*Node, error) {
 	chr.nodesMX.Lock()
 	defer chr.nodesMX.Unlock()
 
+	hash := Hash([]byte(opt.ID))
+
 	n := NewNode(opt)
+	n.Hash = hash
 
 	err := n.Init()
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range opt.VMNodes + 1 {
-		nodeID := fmt.Sprintf("%s_%d", opt.ID, i)
-		hash := Hash([]byte(nodeID))
+	chr.Nodes[hash] = n
+	chr.Hashes = append(chr.Hashes, hash)
+	slices.Sort(chr.Hashes)
 
-		chr.Nodes[hash] = n
-		chr.Hashes = append(chr.Hashes, hash)
-		slices.Sort(chr.Hashes)
+	if opt.VMNodes > 0 {
+		chr.initVirtualNodes(opt, n)
 	}
 
-	return n, nil
+	return chr.Nodes[hash], nil
+}
+
+func (chr *Ring) initVirtualNodes(opt NodeOption, n *Node) {
+	for i := range opt.VMNodes {
+		vmNode := new(Node)
+
+		n.CopyTo(vmNode)
+
+		vmNode.ID = []byte(fmt.Sprintf("%s_%d", opt.ID, i))
+		vmNode.Hash = Hash(vmNode.ID)
+		vmNode.IsVM = true
+
+		n.VMNodes = append(n.VMNodes, VMNode{
+			ID:   append([]byte{}, vmNode.ID...),
+			Hash: vmNode.Hash,
+		})
+
+		chr.Nodes[vmNode.Hash] = vmNode
+		chr.Hashes = append(chr.Hashes, vmNode.Hash)
+
+		slices.Sort(chr.Hashes)
+	}
 }
 
 func (chr *Ring) RemoveNode(id []byte) {

@@ -10,12 +10,20 @@ import (
 	"time"
 )
 
+type VMNode struct {
+	ID   []byte
+	Hash uint64
+}
+
 type Node struct {
 	ID         []byte
+	Hash       uint64
 	URI        string
 	GRPCPort   int
 	HTTPPort   int
 	ReplicaURI string
+	VMNodes    []VMNode
+	IsVM       bool
 
 	client *grpc.ClientConn
 	conn   bloomproto.DistributedBloomFilterClient
@@ -112,6 +120,9 @@ func (n *Node) Close() {
 func (n *Node) CopyTo(node *Node) {
 	node.ID = append(node.ID[:0], n.ID...)
 	node.URI = n.URI
+	node.GRPCPort = n.GRPCPort
+	node.HTTPPort = n.HTTPPort
+	node.ReplicaURI = n.ReplicaURI
 	node.client = n.client
 	node.conn = n.conn
 }

@@ -41,9 +41,18 @@ type Service struct {
 }
 
 func NewService(masterURI string) *Service {
-	return &Service{
+	s := &Service{
 		masterURI: masterURI,
 	}
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "bloom_filter_size",
+		Help: "The size of bloom filter in bytes",
+	}, func() float64 {
+		return float64(s.elementsCount.Load())
+	})
+
+	return s
 }
 
 func (s *Service) Init() error {

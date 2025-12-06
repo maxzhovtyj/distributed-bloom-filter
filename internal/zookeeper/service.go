@@ -70,6 +70,7 @@ func (s *Service) Run() {
 		log.Panicf("Failed to init cluster bloom filter: %v", err)
 	}
 
+	log.Println(s.ring.Load().String())
 	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
 
 	mux := http.NewServeMux()
