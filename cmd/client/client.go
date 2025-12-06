@@ -77,7 +77,7 @@ func (p *LoadTestWorkerPool) runWorker() {
 }
 
 var (
-	randSlots = [10]bool{false, false, false, false, false, false, false, false, false, true}
+	randSlots = [10]bool{false, false, false, false, false, false, false, true, true, true}
 	randIdx   atomic.Uint64
 )
 
