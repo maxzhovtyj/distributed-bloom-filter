@@ -24,8 +24,9 @@ var (
 		Help: "The total number of processed events",
 	})
 	testRequestLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "test_request_latency",
-		Help: "The total latency of processed events",
+		Name:    "test_request_latency",
+		Help:    "The total latency of processed events",
+		Buckets: prometheus.ExponentialBuckets(0.000001, 2, 12),
 	}, []string{"protocol"})
 
 	insertRequests = promauto.NewCounter(prometheus.CounterOpts{
@@ -189,6 +190,8 @@ func (s *Service) loadFromDisk() error {
 	if err != nil {
 		return err
 	}
+
+	s.bloomFilter.Store(&bfd)
 
 	return nil
 }
