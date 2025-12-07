@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-func Run(masterNodeURI string) {
+func Run(masterNodeURI, bdfPath string) {
 	tcpSocket, err := net.Listen("tcp", ":8000")
 	if err != nil {
 		panic(err)
@@ -17,7 +17,7 @@ func Run(masterNodeURI string) {
 
 	grpcServer := grpc.NewServer()
 
-	service := NewService(masterNodeURI)
+	service := NewService(masterNodeURI, bdfPath)
 
 	err = service.Init()
 	if err != nil {

@@ -1,4 +1,6 @@
-GET http://localhost:9000/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
-GET http://localhost:9001/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
-GET http://localhost:9002/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
-GET http://localhost:9003/test?uid=7b84e6b5-82ea-47a6-bc6a-bc019fb69fad
+GET http://161.35.74.38:9000/test?uid=4b9b757a-a42d-4957-b8b3-b18009d095d5
+GET http://134.209.244.237:9000/test?uid=a25b06ca-e5ae-4cbc-80f7-59ae2b545196
+GET http://46.101.123.0:9000/test?uid=61436952-042a-4fb6-b091-5592d3b7d258
+GET http://161.35.74.38:9000/test?uid=411b3f3b-7b6c-46ec-a5b5-039c1ef35cf8
+GET http://134.209.244.237:9000/test?uid=dce2f90e-cea9-4583-8291-4596bd5b5ec3
+GET http://46.101.123.0:9000/test?uid=1b6d512a-e6a1-4d6f-a3b9-f1d019ecc33f

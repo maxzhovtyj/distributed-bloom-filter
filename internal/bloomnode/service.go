@@ -18,8 +18,6 @@ import (
 	"time"
 )
 
-const bfdPath = "./bloom_filter.bfd"
-
 var (
 	testRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "test_requests_count",
@@ -44,15 +42,17 @@ var (
 type Service struct {
 	masterURI string
 
+	bfdPath       string
 	bloomFilter   atomic.Pointer[bloom.BloomFilter]
 	elementsCount atomic.Uint64
 
 	bloomproto.UnimplementedDistributedBloomFilterServer
 }
 
-func NewService(masterURI string) *Service {
+func NewService(masterURI, bfdPath string) *Service {
 	s := &Service{
 		masterURI: masterURI,
+		bfdPath:   bfdPath,
 	}
 
 	promauto.NewGaugeFunc(prometheus.GaugeOpts{
@@ -178,7 +178,7 @@ func (s *Service) Insert(req grpc.ClientStreamingServer[bloomproto.InsertRequest
 }
 
 func (s *Service) loadFromDisk() error {
-	raw, err := os.ReadFile(bfdPath)
+	raw, err := os.ReadFile(s.bfdPath)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (s *Service) storeToDisk() error {
 		return err
 	}
 
-	err = os.WriteFile(bfdPath, raw, os.ModePerm)
+	err = os.WriteFile(s.bfdPath, raw, os.ModePerm)
 	if err != nil {
 		return err
 	}

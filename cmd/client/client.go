@@ -105,7 +105,7 @@ func main() {
 
 	wp := LoadTestWorkerPool{
 		sdk:     bloomSDK,
-		workers: 100,
+		workers: 20,
 		tasks:   make(chan Task, 100_000),
 	}
 
