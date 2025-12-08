@@ -24,14 +24,20 @@ func main() {
 
 	log.Println("Starting zookeeper service...")
 
-	log.Printf("Config: %s\n", raw)
-
 	clusterOptions := new(zookeeper.ClusterOptions)
 
 	if err = yaml.Unmarshal(raw, clusterOptions); err != nil {
 		log.Fatalf("Failed to unmarshal config: %v", err)
 		return
 	}
+
+	raw, err = yaml.Marshal(clusterOptions)
+	if err != nil {
+		log.Fatalf("Failed to marshal config: %v", err)
+		return
+	}
+
+	log.Printf("\nConfig:\n%s\n", string(raw))
 
 	service, err := zookeeper.New(clusterOptions)
 	if err != nil {

@@ -47,16 +47,16 @@ type ClusterOptions struct {
 }
 
 type NodeOption struct {
-	ID             string `yaml:"id"`
-	URI            string `yaml:"uri"`
-	ReplicationURI string `yaml:"replicationUri"`
-	GRPCPort       int    `yaml:"grpcPort"`
-	HTTPPort       int    `yaml:"httpPort"`
-	VMNodes        int    `yaml:"vmNodes"`
+	ID             string `yaml:"id" json:"id"`
+	URI            string `yaml:"uri" json:"uri"`
+	ReplicationURI string `yaml:"replicationUri" json:"replicationUri"`
+	GRPCPort       int    `yaml:"grpcPort" json:"grpcPort"`
+	HTTPPort       int    `yaml:"httpPort" json:"httpPort"`
+	VMNodes        int    `yaml:"vmNodes" json:"vmNodes"`
 
-	CPUCores     int `yaml:"cpuCores"`
-	MemoryLimit  int `yaml:"memoryLimit"`
-	NetworkLimit int `yaml:"networkLimit"`
+	CPUCores     int `yaml:"cpuCores" json:"cpuCores"`
+	MemoryLimit  int `yaml:"memoryLimit" json:"memoryLimit"`
+	NetworkLimit int `yaml:"networkLimit" json:"networkLimit"`
 }
 
 type Service struct {
@@ -94,6 +94,19 @@ func (s *Service) GetRing() *Ring {
 
 func (s *Service) RunHTTPHandler() {
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/init-cluster", func(w http.ResponseWriter, r *http.Request) {
+		go func() {
+			start := time.Now()
+
+			err := s.InitClusterBloomFilter()
+			if err != nil {
+				log.Panicf("Failed to init cluster bloom filter: %v", err)
+			}
+
+			log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
+		}()
+	})
 	mux.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		uid := r.URL.Query().Get("uid")
 
@@ -114,7 +127,7 @@ func (s *Service) RunHTTPHandler() {
 			return
 		}
 
-		s.AddNode(node)
+		go s.AddNode(node)
 	})
 	mux.HandleFunc("/remove-node", func(w http.ResponseWriter, r *http.Request) {
 		nodeID := []byte(r.URL.Query().Get("nodeID"))
@@ -123,13 +136,7 @@ func (s *Service) RunHTTPHandler() {
 			return
 		}
 
-		uri := r.URL.Query().Get("uri")
-		if len(uri) == 0 {
-			_, _ = w.Write([]byte("uri not found"))
-			return
-		}
-
-		s.RemoveNode(nodeID)
+		go s.RemoveNode(nodeID)
 	})
 	mux.HandleFunc("/cluster", func(w http.ResponseWriter, r *http.Request) {
 		ring := s.ring.Load()
@@ -153,15 +160,22 @@ func (s *Service) RunHTTPHandler() {
 func (s *Service) Run() {
 	go s.RunHTTPHandler()
 
-	start := time.Now()
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "zookeeper_cluster_physical_size",
+		Help: "Amount of nodes in cluster",
+	}, func() float64 {
+		r := s.GetRing()
 
-	err := s.InitClusterBloomFilter()
-	if err != nil {
-		log.Panicf("Failed to init cluster bloom filter: %v", err)
-	}
+		return float64(r.PhysicalNodes())
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "zookeeper_cluster_total_size",
+		Help: "Amount of nodes in cluster",
+	}, func() float64 {
+		r := s.GetRing()
 
-	//log.Println(s.ring.Load().String())
-	log.Printf("Cluster Bloom Filter initialized in %s\n", time.Since(start))
+		return float64(r.Len())
+	})
 }
 
 func (s *Service) InitClusterBloomFilter() error {
@@ -186,6 +200,7 @@ func (s *Service) InitClusterBloomFilter() error {
 
 func (s *Service) AddNode(opt NodeOption) {
 	start := time.Now()
+	log.Println("Start adding node:", string(opt.ID))
 
 	ring := s.GetRing()
 	newRing := NewRing()
@@ -198,11 +213,13 @@ func (s *Service) AddNode(opt NodeOption) {
 
 	err = prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
 	if err != nil {
+		log.Printf("Add Node failed to prepare cluster: %v ", err)
 		return
 	}
 
 	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, map[string]struct{}{})
 	if err != nil {
+		log.Printf("Add Node failed to setup distributed bloom filter: %v", err)
 		return
 	}
 
@@ -213,8 +230,9 @@ func (s *Service) AddNode(opt NodeOption) {
 }
 
 func (s *Service) RemoveNode(id []byte) {
-	start := time.Now()
+	log.Println("Start removing node:", string(id))
 
+	start := time.Now()
 	ring := s.GetRing()
 
 	newRing := NewRing()
@@ -224,11 +242,13 @@ func (s *Service) RemoveNode(id []byte) {
 
 	err := prepareClusterBloomFilter(s.cfg.BloomFilterPath, newRing)
 	if err != nil {
+		log.Printf("Remove Node failed to prepare cluster: %v\n", err)
 		return
 	}
 
 	err = setupDistributedBloomFilter(s.cfg.BloomFilterPath, newRing, make(map[string]struct{}))
 	if err != nil {
+		log.Printf("Remove Node failed to setup distributed bloom filter: %v\n", err)
 		return
 	}
 

@@ -106,7 +106,7 @@ func main() {
 	wp := LoadTestWorkerPool{
 		sdk:     bloomSDK,
 		workers: 20,
-		tasks:   make(chan Task, 100_000),
+		tasks:   make(chan Task, 10_000),
 	}
 
 	wp.Start()
@@ -147,8 +147,8 @@ func main() {
 func runSDKHTTPHandler() {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	log.Println("Start serving http on :9000")
-	if err := http.ListenAndServe(":9000", mux); err != nil {
+	log.Println("Start serving http on :8888")
+	if err := http.ListenAndServe(":8888", mux); err != nil {
 		panic(err)
 	}
 }

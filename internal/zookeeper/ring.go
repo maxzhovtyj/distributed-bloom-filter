@@ -183,3 +183,27 @@ func (chr *Ring) Close() {
 		n.Close()
 	}
 }
+
+func (chr *Ring) Len() int {
+	chr.nodesMX.RLock()
+	defer chr.nodesMX.RUnlock()
+
+	return len(chr.Nodes)
+}
+
+func (chr *Ring) PhysicalNodes() int {
+	chr.nodesMX.RLock()
+	defer chr.nodesMX.RUnlock()
+
+	c := 0
+
+	for _, n := range chr.Nodes {
+		if n.IsVM {
+			continue
+		}
+
+		c++
+	}
+
+	return c
+}

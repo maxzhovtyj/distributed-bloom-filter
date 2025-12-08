@@ -3,6 +3,8 @@ package sdk
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io"
 	"log"
 	"net/http"
@@ -61,6 +63,21 @@ func (d *DistributedBloomFilter) Init() error {
 		return err
 	}
 
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "sdk_cluster_physical_size",
+		Help: "Amount of nodes in cluster",
+	}, func() float64 {
+		r := d.ring.Load()
+		return float64(r.PhysicalNodes())
+	})
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "sdk_cluster_total_size",
+		Help: "Amount of nodes in cluster",
+	}, func() float64 {
+		r := d.ring.Load()
+		return float64(r.Len())
+	})
+
 	d.ring.Store(newRing)
 
 	go d.runSyncRingWorker()
@@ -69,7 +86,7 @@ func (d *DistributedBloomFilter) Init() error {
 }
 
 func (d *DistributedBloomFilter) runSyncRingWorker() {
-	for range time.Tick(5 * time.Minute) {
+	for range time.Tick(10 * time.Second) {
 		newRing, err := getNewRing(d.ZookeeperURI)
 		if err != nil {
 			log.Println("Failed to sync ring", err)

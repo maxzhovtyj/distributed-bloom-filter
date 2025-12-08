@@ -31,6 +31,7 @@ deploy-bloom-%: build-bloom-node
 deploy-bloom-fr1: HOST = 161.35.74.38
 deploy-bloom-fr2: HOST = 134.209.244.237
 deploy-bloom-fr3: HOST = 46.101.123.0
+deploy-bloom-fr4: HOST = 64.225.105.207
 
 CONFIG_PATH = /root/distributed-bloom-filter/bin/config.yml
 
